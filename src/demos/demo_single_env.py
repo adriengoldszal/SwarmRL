@@ -2,12 +2,16 @@ from stable_baselines3 import PPO, SAC, A2C, TD3
 from sb3_contrib import RecurrentPPO
 from swarm_env.single_env.single_agent import SwarmEnv
 import imageio
+import os
 
 
 def main():
-    path = "../../models/single_agents/easy_3_target/SAC/jqhg5qky.zip"
-
-    items = path.split("/")
+    path = os.path.join("models", "single_agents", "easy_3_target", "SAC", "jqhg5qky")
+    print(f'Loading model from {path}')
+    
+    normalized_path = os.path.normpath(path)
+    items = normalized_path.split(os.sep)
+    
     index = items.index("models")
     algo = items[index + 3]
     total_ep = 10
