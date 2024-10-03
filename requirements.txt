@@ -27,3 +27,4 @@ stable_baselines3[extra]
 sb3_contrib
 moviepy
 tensorboard
+supersuit
