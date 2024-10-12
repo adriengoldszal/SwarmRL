@@ -1,6 +1,6 @@
 PyYAML
 pymunk>=6.4.0
-numpy
+numpy==1.24.3
 scikit-image
 Pillow
 pytest

@@ -5,12 +5,12 @@ import imageio
 
 
 def main():
-    path = "../../models/single_agents/easy_3_target/SAC/jqhg5qky.zip"
+    path = "models/single_agents/easy_3_target/SAC/jqhg5qky"
 
     items = path.split("/")
     index = items.index("models")
     algo = items[index + 3]
-    total_ep = 10
+    total_ep = 4
 
     env = SwarmEnv(
         render_mode="human",
@@ -26,6 +26,7 @@ def main():
     images = []
 
     for i in range(total_ep):
+        print(f'Episode {i} of {total_ep}')
         obs, info = env.reset()
         score = 0
         count = 0

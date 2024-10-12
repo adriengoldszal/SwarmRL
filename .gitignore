@@ -1,7 +1,7 @@
 __pycache__
 scp.py
 .env
-test_venv/
+swarmvenv/
 results
 *.pyc
 /gifs/

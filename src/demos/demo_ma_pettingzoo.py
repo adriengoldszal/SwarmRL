@@ -11,9 +11,12 @@ import sys
 import time
 
 
-env = MultiSwarmEnv(render_mode="human", n_agents=3, n_targets=3, map_name="Easy")
-model = None
-for i in range(10):
+env = MultiSwarmEnv(render_mode="human", n_agents=2, n_targets=2, map_name="Easy")
+model = "models/ma/12-10/tn32lihj"
+total_episodes = 4
+for i in range(total_episodes):
+    
+    print(f'Episode {i} of {total_episodes}')
     obs, info = env.reset()
 
     score = 0

@@ -15,12 +15,12 @@ import supersuit as ss
 from datetime import datetime
 from training.utils import DummyRun
 
-use_wandb = False
+use_wandb = True
 
 config = {
     "algo": "PPO",
     "policy_type": "MultiInputPolicy",
-    "total_timesteps": 500_000,
+    "total_timesteps": 50_000,
     "num_envs": 4,
 }
 
