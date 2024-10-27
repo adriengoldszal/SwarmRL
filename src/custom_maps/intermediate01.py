@@ -36,14 +36,14 @@ class MyMapIntermediate01(BaseRLMap):
         zones_config: ZonesConfig = (),
         num_drones=1,
         num_persons=1,
-        size_area=None,
+        size : int = 500,
     ):
         super().__init__(zones_config)
         self._time_step_limit = 2000
         self._real_time_limit = 120
 
         # PARAMETERS MAP
-        self._size_area = (800, 500)
+        self._size_area = (size*(8/5), size)
         self._rescue_center = RescueCenter(size=(200, 80))
         self._rescue_center_pos = ((295, 205), 0)
 

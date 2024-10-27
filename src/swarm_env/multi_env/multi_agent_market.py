@@ -55,6 +55,7 @@ class MASwarmMarket(gym.Env):
         map_name="Easy",
         n_agents=1,
         n_targets=1,
+        map_size=300,
         render_mode="rgb_array",
         max_episode_steps=100,
         continuous_action=True,
@@ -68,19 +69,21 @@ class MASwarmMarket(gym.Env):
             map_name=map_name,
             n_agents=n_agents,
             n_targets=n_targets,
+            map_size=map_size,
             render_mode=render_mode,
             max_episode_steps=max_episode_steps,
             continuous_action=continuous_action,
             fixed_step=fixed_step,
         )
-
+        self.map_side_size = map_size
+        
         if map_name in map_dict:
             self.map_name = map_name
-            self._map = map_dict[map_name](num_drones=n_agents, num_persons=n_targets)
+            self._map = map_dict[map_name](num_drones=n_agents, num_persons=n_targets,size=map_size)
         else:
             raise Exception("Invalid map name")
 
-        self.map_size = self._map.size_area
+        self.map_size = self._map._size_area
         self.continuous_action = continuous_action
         self.share_reward = share_reward
         self.n_agents = n_agents
@@ -242,7 +245,7 @@ class MASwarmMarket(gym.Env):
 
     def re_init(self):
         self._map = map_dict[self.map_name](
-            num_drones=self.n_agents, num_persons=self.n_targets
+            num_drones=self.n_agents, num_persons=self.n_targets, size=self.map_side_size,
         )
         self.map_size = self._map._size_area
         self._playground = self._map.construct_playground(drone_type=MultiAgentDrone)

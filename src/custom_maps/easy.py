@@ -38,14 +38,14 @@ class EasyMap(BaseRLMap):
         zones_config: ZonesConfig = (),
         num_drones: int = 1,
         num_persons: int = 1,
-        size_area: tuple = (300, 300),
+        size : int = 300,
     ):
         super().__init__(zones_config)
         self._time_step_limit = 7200
         self._real_time_limit = 720  # In seconds
 
         # PARAMETERS MAP
-        self._size_area = size_area
+        self._size_area = (size, size)
         self._number_drones = num_drones
         self._drones: List[DroneAbstract] = []
         self._drones_pos = []
