@@ -331,6 +331,7 @@ class MASwarmMarket(gym.Env):
         commands = {}
         for i, agent in enumerate(self._agents):
             move, msg = self.construct_action(actions[i])
+            print(f"Message {msg} from agent {i}")
             agent.state["message"] = msg
             commands[agent] = move
 

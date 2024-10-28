@@ -57,7 +57,7 @@ class MultiAgentDrone(DroneAbstract):
         super().__init__(
             identifier=identifier,
             misc_data=misc_data,
-            display_lidar_graph=False,
+            display_lidar_graph=True,
             **kwargs,
         )
 
