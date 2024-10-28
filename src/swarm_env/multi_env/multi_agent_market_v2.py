@@ -351,8 +351,8 @@ class MASwarmMarket(gym.Env):
                     else:
                         rew -= 0.25
                         
-        for i in range(len(order)):
-            if order[i] == idx:
+        for i in range(len(current_order)):
+            if current_order[i] == idx:
                 if agent.base.grasper in self._map._wounded_persons[i].grasped_by:
                     rew += 2
                 else:
