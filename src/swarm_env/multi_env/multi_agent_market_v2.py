@@ -97,6 +97,8 @@ class MASwarmMarket(gym.Env):
         self.persons = None
         self.use_exp_map = use_exp_map
         self.use_conflict_reward = use_conflict_reward
+        
+        self.previous_order = None
 
         ### OBSERVATION
 
@@ -284,6 +286,9 @@ class MASwarmMarket(gym.Env):
         return self._map
 
     def process_order(self):
+        """
+        Process bid wins and avoid two winning bids by the same drone
+        """
         order = [-1] * self.n_targets  # Initialize with -1 (unassigned)
         
         # Get all bids in a more manageable format
@@ -334,19 +339,27 @@ class MASwarmMarket(gym.Env):
                 conflict += 1
 
         ### Reward to instruct drone to respect the order
-        order = self.process_order()
+        current_order = self.process_order()
+        
+        if self.previous_order is not None:
+            for i in range(len(current_order)):
+                # If this target was previously assigned to this drone but isn't anymore
+                if self.previous_order[i] == idx and current_order[i] != idx:
+                    # Check if drone was actually grasping when it changed assignment
+                    if agent.base.grasper in self._map._wounded_persons[i].grasped_by:
+                        rew -= 0.75  # Higher penalty for releasing
+                    else:
+                        rew -= 0.25
+                        
         for i in range(len(order)):
             if order[i] == idx:
                 if agent.base.grasper in self._map._wounded_persons[i].grasped_by:
-                    rew += 1
+                    rew += 2
                 else:
-                    rew -= 0.5
+                    rew -= 0.25
                     
-        # Penalize bidding high on multiple targets > 1
-        high_bids = sum(1 for bid in my_bids if bid > 1)
-        if high_bids > 1:
-            rew -= 0.2 * (high_bids - 1)
-
+        self.previous_order = current_order
+        
         return rew, conflict
 
     def step(self, actions):
