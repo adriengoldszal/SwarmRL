@@ -409,15 +409,19 @@ class MASwarmMarket(gym.Env):
             reward, conflict = self.reward(i, actions[i])
             rewards[i] += reward
             conflicts[i] += conflict
-
+            
+        print(f"Rewards before truncation penalty {rewards}")
         self.current_step += 1
         if self.current_step >= self.max_episode_steps:
             truncated = True
             for i in range(len(rewards)):
                 rewards[i] -= 20
 
+        print(f"Rewards after truncation penalty {rewards}")
+        
         # SHARED REWARD DEFINITION
         shared_reward = sum(rewards)
+        print(f"Base shared reward {shared_reward}")
         if not truncated:
             shared_reward = max(shared_reward, -10 * self.n_agents)
 
@@ -431,9 +435,10 @@ class MASwarmMarket(gym.Env):
                 )
                 - prev_distances[i]
             )
-
+        
         shared_reward -= delta_distances / 5
-
+        print(f"delta_distances {delta_distances}, shared reward {shared_reward}")
+        
         if self.use_exp_map:
             current_exp_score = self._map.explored_map.score()
             if self.last_exp_score is not None:
@@ -447,8 +452,9 @@ class MASwarmMarket(gym.Env):
 
             # REWARD
             shared_reward += 50 * delta_exp_score
-
+            print(f"Add delta_exp ({50*delta_exp_score})")
         if self.share_reward:
+            print(f"Final shared reward {shared_reward}")
             final_rewards = [[shared_reward]] * self.n_agents
         else:
             final_rewards = rewards

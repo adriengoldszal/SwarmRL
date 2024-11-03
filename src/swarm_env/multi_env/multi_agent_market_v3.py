@@ -97,6 +97,8 @@ class MASwarmMarket(gym.Env):
         self.persons = None
         self.use_exp_map = use_exp_map
         self.use_conflict_reward = use_conflict_reward
+        
+        self.previous_order = None
 
         ### OBSERVATION
 
@@ -284,141 +286,166 @@ class MASwarmMarket(gym.Env):
         return self._map
 
     def process_order(self):
-        order = []
-        for i in range(self.n_targets):
-            order.append(np.argmax([a.state["message"][i] for a in self._agents]))
-        print(f"Order {order}")
+        """
+        Process bid wins with distance-based tie breaking
+        """
+        order = [-1] * self.n_targets
+        assigned_drones = set()
+        
+        # Get bids and distances for all drone-target pairs
+        all_bids = [[a.state["message"][i] for i in range(self.n_targets)] for a in self._agents]
+        distances = []
+        for agent in self._agents:
+            agent_distances = []
+            for target in self._map._wounded_persons:
+                dist = self.get_distance(agent.position, target.position)
+                agent_distances.append(dist)
+            distances.append(agent_distances)
+
+        while -1 in order:
+            best_score = float('-inf')
+            best_drone = -1
+            best_target = -1
+            
+            for target_idx in range(self.n_targets):
+                if order[target_idx] == -1:
+                    for drone_idx in range(len(self._agents)):
+                        if drone_idx not in assigned_drones:
+                            bid = all_bids[drone_idx][target_idx]
+                            distance = distances[drone_idx][target_idx]
+                            
+                            # Combine bid and distance into score
+                            # Higher bids are better, lower distances are better
+                            score = bid - (distance / 100.0)  # Scale distance to not overwhelm bid
+                            
+                            if score > best_score:
+                                best_score = score
+                                best_drone = drone_idx
+                                best_target = target_idx
+            
+            if best_drone != -1:
+                order[best_target] = best_drone
+                assigned_drones.add(best_drone)
+
         return order
+    
+    
+    def calculate_rewards(self):
+        rewards = [0.0] * self.n_agents
+        conflicts = [0] * self.n_agents
 
-    def reward(self, idx, action):
-        agent = self._agents[idx]
-        rew = -np.abs(action[2])
-        conflict = 0
-        if agent.is_collided():
-            rew -= 1
-        if agent.touch_human():
-            rew += 1
-        for human in self._map._wounded_persons:
-            magnets = set(human.grasped_by)
-            if len(magnets) > 1 and agent.base.grasper in magnets:
-                if self.use_conflict_reward:
-                    rew -= 1
-                conflict += 1
+        # 1. Base rewards and conflict detection
+        CONFLICT_PENALTY = -30.0
+        for i, agent in enumerate(self._agents):
+            if agent.reward > 0:
+                self.current_rescue_count += agent.reward
+                rewards[i] += 50
 
-        ### Reward to instruct drone to respect the order
-        order = self.process_order()
-        for i in range(len(order)):
-            if order[i] == idx:
-                if agent.base.grasper in self._map._wounded_persons[i].grasped_by:
-                    rew += 1
-                else:
-                    rew -= 0  # 0.3
+            for human in self._map._wounded_persons:
+                magnets = set(human.grasped_by)
+                if len(magnets) > 1 and agent.base.grasper in magnets:
+                    rewards[i] += CONFLICT_PENALTY
+                    conflicts[i] += 1
+                    
+        print(f"Rewards post conflict and rescue {rewards}")
+        
+        # 2. Distance-based rewards
+        current_distances = []
+        for person in self._map._wounded_persons:
+            pos = person.position
+            dist = self.get_distance(pos, self._map._rescue_center_pos[0])
+            current_distances.append(dist)
+        
+        delta_distances = sum(current_distances) - sum(self.prev_distances)
+        distance_reward = -delta_distances / (10 * self.n_agents)
 
-        return rew, conflict
+        # 3. Exploration rewards
+        if self.use_exp_map:
+            current_exp_score = self._map.explored_map.score()
+            if self.last_exp_score is not None:
+                delta_exp = current_exp_score - self.last_exp_score
+                exploration_reward = 10 * delta_exp
+            else:
+                exploration_reward = 0
+            self.last_exp_score = current_exp_score
+        else:
+            exploration_reward = 0
 
+        # 4. Time and truncation penalties
+        time_penalty = -0.1
+        if self.current_step >= self.max_episode_steps:
+            progress = self.current_rescue_count / self._map._number_wounded_persons
+            truncation_penalty = -10 * (1 - progress)
+        else:
+            truncation_penalty = 0
+
+        # Combine all rewards
+        final_rewards = []
+        for i in range(self.n_agents):
+            print(f"Agent {i} distance_reward {distance_reward}, exploration {exploration_reward / self.n_agents}, time {time_penalty}, trunc {truncation_penalty}")
+            agent_reward = (
+                rewards[i] +
+                distance_reward +
+                exploration_reward / self.n_agents +
+                time_penalty +
+                truncation_penalty
+            )
+            # Format as nested list for wrapper compatibility
+            final_rewards.append([agent_reward])
+            
+        print(f"Final rewards {final_rewards}")
+        return final_rewards, {"conflict_count": conflicts}
+    
     def step(self, actions):
         self._playground.window.switch_to()
         frame_skip = 5
         counter = 0
         done = False
         steps = self.fixed_step
-        prev_distances = [0] * self.n_agents
-        for i, person in enumerate(self._map._wounded_persons):
-            position = person.position
-            prev_distances[i] = self.get_distance(
-                (position[0], position[1]),
-                self._map._rescue_center_pos[0],
-            )
 
+        # Store pre-step state for reward calculation
+        self.prev_distances = []
+        for person in self._map._wounded_persons:
+            pos = person.position
+            dist = self.get_distance(pos, self._map._rescue_center_pos[0])
+            self.prev_distances.append(dist)
+
+        # Process actions
         commands = {}
         for i, agent in enumerate(self._agents):
             move, msg = self.construct_action(actions[i])
-            print(f"Message {msg} from agent {i}")
             agent.state["message"] = msg
             commands[agent] = move
 
+        # Execute environment steps
         terminated, truncated = False, False
-        rewards = [-0.5 for _ in range(self.n_agents)]
-
         while counter < steps and not done:
             _, _, _, done = self._playground.step(commands)
-
-            for i, agent in enumerate(self._agents):
-                if agent.reward != 0:
-                    self.current_rescue_count += agent.reward
-                    rewards[i] += 50
-
-            if self.current_rescue_count >= self._map._number_wounded_persons:
-                terminated = True
-                self.current_rescue_count = 0
-                break
-
             if self.render_mode == "human" and counter % frame_skip == 0:
-                # self._agent.update_grid()
                 self._render_frame()
             counter += 1
 
-        conflicts = [0] * self.n_agents
-        for i, agent in enumerate(self._agents):
-            reward, conflict = self.reward(i, actions[i])
-            rewards[i] += reward
-            conflicts[i] += conflict
+        rewards, reward_info = self.calculate_rewards()
 
+        # Update episode state
         self.current_step += 1
-        if self.current_step >= self.max_episode_steps:
+        
+        # Check for episode completion conditions
+        if self.current_rescue_count >= self._map._number_wounded_persons:
+            terminated = True
+            self.current_rescue_count = 0
+        elif self.current_step >= self.max_episode_steps:
             truncated = True
-            for i in range(len(rewards)):
-                rewards[i] -= 20
 
-        # SHARED REWARD DEFINITION
-        shared_reward = sum(rewards)
-        if not truncated:
-            shared_reward = max(shared_reward, -10 * self.n_agents)
-
-        delta_distances = 0
-        for i, person in enumerate(self._map._wounded_persons):
-            position = person.position
-            delta_distances += (
-                self.get_distance(
-                    (position[0], position[1]),
-                    self._map._rescue_center_pos[0],
-                )
-                - prev_distances[i]
-            )
-
-        shared_reward -= delta_distances / 5
-
-        if self.use_exp_map:
-            current_exp_score = self._map.explored_map.score()
-            if self.last_exp_score is not None:
-                delta_exp_score = current_exp_score - self.last_exp_score
-            else:
-                delta_exp_score = 0
-
-            self.last_exp_score = current_exp_score
-            # print(f"score {delta_exp_score}, {current_exp_score}")
-            self.gui.update_explore_map()
-
-            # REWARD
-            shared_reward += 50 * delta_exp_score
-
-        if self.share_reward:
-            final_rewards = [[shared_reward]] * self.n_agents
-        else:
-            final_rewards = rewards
-        # terminations = [terminated] * self.n_agents
-        # truncations = [truncated] * self.n_agents
-        dones = [terminated or truncated] * self.n_agents
-
+        # Get observations and merge infos
         observations = self._get_obs()
         infos = self._get_info()
-
-        infos["conflict_count"] = conflicts
+        infos.update(reward_info)
 
         if self.render_mode == "human":
             self._render_frame()
 
-        return observations, final_rewards, dones, infos
+        return observations, rewards, [terminated or truncated] * self.n_agents, infos
 
     def _render_frame(self):
         # Capture the frame

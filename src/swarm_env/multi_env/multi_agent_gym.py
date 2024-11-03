@@ -232,7 +232,7 @@ class MultiSwarmEnv(gym.Env):
 
     def reset(self, seed=None, options=None):
         if (
-            self.ep_count == 0
+            self.ep_count % 1 == 0
         ):  # change to self.ep_count % 1 == 0 to avoid mem leak, but hurt performance
             del self._map
             del self._agents
