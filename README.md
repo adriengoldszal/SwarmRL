@@ -9,20 +9,28 @@ This project implements the reinforcement learning environment for the Swarm Res
 - The codes to render the env are provided in the `/demos` directory.
 - The codes to train env with Stable Baselines3 are provided in the `/training` directory.
 
+### If you want to do some more in-depth MARL training, please go [here](https://github.com/adriengoldszal/SwarmMARL)
+
+# Warnings 
+
+Running a training, especially in the MARL Repo with multiple parallelized environments, encures a memory leak. This is somewhat fixed by changing the GUI
+reset in the `reset()` function of the different environments in **src > swarm_env > multi_env** from :  
+`self.ep_count == 0` to `self.ep_count % 1 == 0`
+
 # Trouble shooting
 
-o run via SSH:
-Running SwarmRL via SSH requires Xvfb. In case you do not have root access on SSH server, you can use this executable version of Xvfb on Linux x86: Link.
+## to run via SSH:
+Running SwarmRL via SSH requires Xvfb. In case you do not have root access on SSH server, you can use this executable version of Xvfb on Linux x86: [Link](https://app.box.com/s/jlhpq6dbet6594a26f71mbuux07jzhoh).  
 
-$ ./Xvfb :99 -screen 0 1024x768x24 &
-$ export DISPLAY=:99
-If there is missing shared libraries:
+If you have it, run :  
+`$ ./Xvfb :99 -screen 0 1024x768x24`   
+`$ export DISPLAY=:99`    
 
-Run ldd ./Xvfb to check for missing objects.
-Run export LD_LIBRARY_PATH=[your_path_to_download]/lib:$LD_LIBRARY_PATH to add new directory for executable to look for new objects file. (The link above has some objects file that are usually missing, you can add more files to it if missing).
-Run ldd ./Xvfb again to check if the new path is found.
-Try running the Python program again.
-
+If there are missing shared libraries :       
+- Run `ldd ./Xvfb` to check for missing objects.  
+- Run `export LD_LIBRARY_PATH=[your_path_to_download]/lib:$LD_LIBRARY_PATH` to add new directory for executable to look for new objects file. (The link above has some objects file that are usually missing, you can add more files to it if missing).
+- Run `ldd ./Xvfb` again to check if the new path is found.
+- Try running the Python program again.
 
 If you are using Ubuntu and face this problem with libGL: `libGL error: MESA-LOADER: failed to open iris: /usr/lib/dri/iris_dri.so`, try:
 ```
